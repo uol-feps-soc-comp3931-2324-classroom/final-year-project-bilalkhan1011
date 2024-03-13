@@ -1,0 +1,7 @@
+<resources>
+    <string name="ecg_classification">ECG Classification</string>
+    <string name="app_name">ECG App</string>
+    <string name="ecg_monitoring">ECG Monitoring</string>
+    <string name="upload_signal">upload signal</string>
+    <string name="classification">Classification:</string>
+</resources>
