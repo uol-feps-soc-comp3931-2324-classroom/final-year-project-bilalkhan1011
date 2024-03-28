@@ -1,0 +1,18 @@
+<resources>
+    <string name="ecg_classification">ECG Classification</string>
+    <string name="app_name">ECG App</string>
+    <string name="ecg_monitoring">ECG Monitoring</string>
+    <string name="upload_signal">upload signal</string>
+    <string name="classification">Classification:</string>
+    <string name="red">Several Irregular Beats Detected</string>
+    <string name="orange">Some Abnormal Beats Found</string>
+    <string name="green">All looks good!</string>
+    <string name="redtext">Urgent
+ There have been many irregularities detected in your recent ECG data.
+Complete symptom checker below.</string>
+    <string name="orangetext">Potential Issues. There have been some irregularities detected in your recent ECG data. Try symptom checker below.</string>
+    <string name="greentext">Great news!
+ There have been no irregularities detected in your recent ECG data</string>
+
+
+</resources>
