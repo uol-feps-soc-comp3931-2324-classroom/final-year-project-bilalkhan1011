@@ -7,12 +7,14 @@
     <string name="red">Several Irregular Beats Detected</string>
     <string name="orange">Some Abnormal Beats Found</string>
     <string name="green">All looks good!</string>
+    <string name="grey">Recording Error</string>
     <string name="redtext">Urgent
  There have been many irregularities detected in your recent ECG data.
 Complete symptom checker below.</string>
     <string name="orangetext">Potential Issues. There have been some irregularities detected in your recent ECG data. Try symptom checker below.</string>
     <string name="greentext">Great news!
  There have been no irregularities detected in your recent ECG data</string>
+    <string name="greytext">There have been errors when recording ECGs, please re-adjust device and try again.</string>
 
 
 </resources>

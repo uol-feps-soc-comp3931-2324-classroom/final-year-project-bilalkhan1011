@@ -35,14 +35,16 @@ import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+    // prepare variables for use in the application
     private List<String[]> csvData;
     private int currentRowIndex = -1;
     private LighterModel model;
     private Handler handler = new Handler();
     private Runnable runnableCode;
     private int abnormalBeatsCount = 0;
-    private TextView predictionTextView; // Assume this TextView exists in your layout
-    private ImageView statusImageView; // Assume this ImageView exists in your layout
+    private int unknownBeatsCount = 0;
+    private TextView predictionTextView;
+    private ImageView statusImageView;
 
     private TextView additionalText;
 
@@ -53,16 +55,15 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
+        // find relevant elements by their ID's to set them as variables for updating
         predictionTextView = findViewById(R.id.predictionTextView);
         statusImageView = findViewById(R.id.statusImageView);
         additionalText = findViewById(R.id.additionalText);
 
+        // read in the sample data required for demo
         csvData = readCSVFromAssets();
 
-        Pair<ByteBuffer, String> inputData = loadInputData();
-        ByteBuffer byteBuffer = inputData.first;
-        String actualLabel = inputData.second;
-
+        // try to create the deep learning model using the file
         try {
             model = LighterModel.newInstance(MainActivity.this);
         } catch (IOException e) {
@@ -70,18 +71,23 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this, "Error loading the model: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
 
-        // Define the code block to be executed
+        // create a new section of runnable code
         runnableCode = new Runnable() {
             @Override
             public void run() {
-                // Insert the code from your if(byteBuffer != null) { ... } block here
-                String predictedLabel = null;
+
+                // load in the data per row and prepare it for processing
+                Pair<ByteBuffer, String> inputData = loadInputData();
+                ByteBuffer byteBuffer = inputData.first;
+                String actualLabel = inputData.second;
+
+                // prepare the data for processing by the model
                 if (byteBuffer != null) {
-                    // Ensure buffer uses the correct byte order
                     byteBuffer.order(ByteOrder.nativeOrder());
                     TensorBuffer inputFeature0 = TensorBuffer.createFixedSize(new int[]{1, 2160, 1}, DataType.FLOAT32);
                     inputFeature0.loadBuffer(byteBuffer);
 
+                    // feed data to model and collect the output
                     LighterModel.Outputs outputs = model.process(inputFeature0);
                     TensorBuffer outputFeature0 = outputs.getOutputFeature0AsTensorBuffer();
 
@@ -94,49 +100,63 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
+                    // categorise the output using the classes pre-set in the AAMI standard
                     String[] classes = {"Normal", "Ventricular", "Supraventricular", "Fusion", "Other"};
                     String actualClass = classes[Integer.parseInt(actualLabel)];
-                    predictedLabel = classes[maxIndex];
+                    String predictedLabel = classes[maxIndex];
 
-                    String outputText = "Prediction: " + predictedLabel + "\nActual Label: " + actualClass;
+                    // update the counter variables and UI
+                    updateCounts(predictedLabel);
+                    updateUI(abnormalBeatsCount, unknownBeatsCount);
+
+                    handler.postDelayed(this, 3000);
                 }
-
-                // Check the predicted label and update the abnormalBeatsCount accordingly
-                if (predictedLabel.equals("Other") || predictedLabel.equals("Normal")) {
-                    abnormalBeatsCount = 0; // Reset if the beat is normal or other
-                } else {
-                    abnormalBeatsCount++;
-                }
-
-                // Update UI based on the count of abnormal beats
-                updateUI(abnormalBeatsCount);
-
-                // Repeat this runnable code block again every 5 seconds
-                handler.postDelayed(this, 5000);
             }
         };
 
-        // Start the initial runnable task by posting through the handler
         handler.post(runnableCode);
     }
 
+    // update each of the counter variables depending on the label classified by the model
+    private void updateCounts(String predictedLabel) {
+        if (predictedLabel.equals("Other")) {
+            unknownBeatsCount++;
+        } else {
+            abnormalBeatsCount++;
+        }
+    }
 
-    private void updateUI(int abnormalBeatsCount) {
+    // update the interface depending on the classified labels
+    private void updateUI(int abnormalBeatsCount, int unknownBeatsCount) {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+
+                // low threshold will lead to all of the ECG summary elements to update to orange
                 if (abnormalBeatsCount >= 5) {
-                    statusImageView.setImageResource(R.drawable.orange); // Change the drawable to indicate a warning
+                    statusImageView.setImageResource(R.drawable.orange);
                     predictionTextView.setText(R.string.orange);
                     additionalText.setText(R.string.orangetext);
                 }
-                if (abnormalBeatsCount >= 10) {
-                    statusImageView.setImageResource(R.drawable.red); // Change the drawable to indicate danger
+
+                // high threshold, more serious instructions
+                if (abnormalBeatsCount >= 6) {
+                    statusImageView.setImageResource(R.drawable.red);
                     predictionTextView.setText(R.string.red);
                     additionalText.setText(R.string.redtext);
                 }
+
+                //unknown readings, advises to readjust device
+                if (unknownBeatsCount >= 10) {
+                    statusImageView.setImageResource(R.drawable.grey);
+                    predictionTextView.setText(R.string.grey);
+                    additionalText.setText(R.string.greytext);
+                }
+
             }
+
         });
+
     }
 
 
@@ -149,17 +169,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // load in the CSV file provided for sample data containing diverse examples of each beat
     private Pair<ByteBuffer, String> loadInputData() {
+
         if (csvData == null || csvData.isEmpty()) return new Pair<>(null, "No Data");
 
+        // set the array up for handling the ECG data and load in the true labels
         int numRows = csvData.size();
         currentRowIndex = (currentRowIndex + 1) % numRows;
         String[] selectedRow = csvData.get(currentRowIndex);
         String label = selectedRow[selectedRow.length - 1];
 
+        // turn the data into Byte Buffers suitable for feeding into the model
         int numCols = selectedRow.length - 1;
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(numCols * Float.BYTES);
-        byteBuffer.order(ByteOrder.nativeOrder()); // Ensure the buffer uses the system's native byte order
+        byteBuffer.order(ByteOrder.nativeOrder());
 
         for (int i = 0; i < numCols; i++) {
             byteBuffer.putFloat(Float.parseFloat(selectedRow[i]));
@@ -167,19 +191,23 @@ public class MainActivity extends AppCompatActivity {
         byteBuffer.rewind();
 
         return new Pair<>(byteBuffer, label);
+
     }
 
+    // read CSV from the assets folder
     private List<String[]> readCSVFromAssets() {
+
+        // find the csv file
         AssetManager assetManager = getAssets();
         List<String[]> csvData = new ArrayList<>();
+
+        // open the file and begin reading it
         try {
             InputStream inputStream = assetManager.open("data.csv");
             CSVReader reader = new CSVReader(new InputStreamReader(inputStream));
             List<String[]> allRows = reader.readAll();
 
-            // Check if the list is not empty and has more than one row
             if (!allRows.isEmpty()) {
-                // Skip the first row (header) and add the rest to csvData
                 csvData.addAll(allRows.subList(1, allRows.size()));
             }
 
@@ -187,6 +215,8 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        // returns the csv data as an list
         return csvData;
     }
 }
